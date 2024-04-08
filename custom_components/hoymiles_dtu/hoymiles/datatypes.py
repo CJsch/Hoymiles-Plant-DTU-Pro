@@ -79,8 +79,13 @@ class MISeriesMicroinverterData(Structure):
 
 class HMSeriesMicroinverterData(MISeriesMicroinverterData):
     """HM series microinverter status data structure."""
-
     pv_current: Decimal = member(fmt=_udec16p2, doc='PV current [A].')
+
+
+class HMSeriesMicroinverterCoils(Structure):
+    on_off: int = member(fmt=uint8, doc='On/Off status')
+    limit_active_power: int = member(fmt=uint8, doc='limit active power [%]')
+
 
 
 @dataclass
@@ -99,3 +104,5 @@ class PlantData:
     """Alarm indicator. True means that at least one microinverter reported an alarm."""
     microinverter_data: List[Union[MISeriesMicroinverterData, HMSeriesMicroinverterData]] = field(default_factory=list)
     """Data for each microinverter."""
+    microinverter_coils: List[HMSeriesMicroinverterCoils] = field(default_factory=list)
+    """Coil data for each microinverter."""

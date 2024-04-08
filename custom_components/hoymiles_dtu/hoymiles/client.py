@@ -6,13 +6,20 @@ from typing import List, Type, Union
 from pymodbus.client import ModbusTcpClient
 from pymodbus.framer.socket_framer import ModbusSocketFramer
 
+from plum.bigendian import uint8
+from plum.utilities import pack
+
 from .datatypes import (
     HMSeriesMicroinverterData,
     MicroinverterType,
     MISeriesMicroinverterData,
+    HMSeriesMicroinverterCoils,
     PlantData,
     _serial_number_t,
 )
+
+class CoilNumberException(Exception):
+    pass
 
 
 @dataclass
@@ -31,6 +38,11 @@ class CommunicationParams:
     """Strict timing, 1.5 character between requests."""
     reconnect_delay: int = 60000 * 5
     """Delay in milliseconds before reconnecting."""
+
+@dataclass
+class CommunicationParamsCoils(CommunicationParams):
+    """Low level pymodbus communication parameters for coils"""
+    retry_on_empty: bool = True
 
 
 class _CustomSocketFramer(ModbusSocketFramer):
@@ -81,23 +93,35 @@ class HoymilesModbusTCP:
             self._microinverter_data_struct = HMSeriesMicroinverterData
         else:
             raise ValueError('Unsupported microinverter type:', microinverter_type)
+        self._microinverter_coils_struct = HMSeriesMicroinverterCoils
         self._unit_id = unit_id
         self._comm_params: CommunicationParams = CommunicationParams()
+        self._comm_params_coils: CommunicationParamsCoils = CommunicationParamsCoils()
         self._dtu_type: int = dtu_type
 
     @property
     def comm_params(self) -> CommunicationParams:
         """Low level communication parameters."""
         return self._comm_params
+    
+    @property
+    def comm_params_coils(self) -> CommunicationParamsCoils:
+        """Low level pymodbus communication parameters for coils."""
+        return self._comm_params_coils
+    
 
-    def _get_client(self) -> ModbusTcpClient:
-        return ModbusTcpClient(self._host, self._port, framer=_CustomSocketFramer, **asdict(self.comm_params))
+    def _get_client(self, coils: bool = False) -> ModbusTcpClient:
+        return ModbusTcpClient(self._host, self._port, framer=_CustomSocketFramer, **asdict(self.comm_params_coils if coils else self.comm_params))
 
     @staticmethod
     def _read_registers(client: ModbusTcpClient, start_address, count, unit_id):
         result = client.read_holding_registers(start_address, count, slave=unit_id)
         if result.isError():
             raise result
+        return result
+    
+    def read_coils(self, start_address, count, unit_id):
+        result = self.read_coils(start_address, count, slave=unit_id)
         return result
 
     @property
@@ -120,6 +144,30 @@ class HoymilesModbusTCP:
                     break
                 data.append(microinverter_data)
         return data
+
+
+    # ---------- Reading too many values from Modbus can cause issues                      --------
+    # ---------- monitoring coils is disabled as the most interesting part is setting them --------
+    @property
+    def microinverter_coils(self) -> List[HMSeriesMicroinverterCoils]:
+        """Coil data from all microinverters.
+
+        Each `get` is a new request and coil values from the installation.
+
+        """
+        coils: List[HMSeriesMicroinverterCoils] = []
+        with self._get_client() as client:
+            for i in range(self._MAX_MICROINVERTER_COUNT):
+                start_address_coils = i * 6 + 0xC006
+                result_coils = self.read_coils(start_address_coils, 2, self._unit_id)
+                if result_coils.isError():
+                    if result_coils.exception_code == 1:
+                        break
+                    else:
+                        raise result_coils
+                microinverter_coils = self._microinverter_coils_struct.unpack(result_coils.encode()[1:])
+                coils.append(microinverter_coils)
+        return coils
 
     @property
     def dtu(self) -> str:
@@ -147,3 +195,32 @@ class HoymilesModbusTCP:
                 if microinverter.alarm_code:
                     data.alarm_flag = True
         return data
+
+    @staticmethod
+    def number_to_coil_byte(number: int) -> List[bool]:
+        if number > 100 or number < 0:
+            raise CoilNumberException("Number outside of supported range (0-100)")
+        bit_list = []
+        for byte in pack(number, uint8):
+            for index in range(7):  # max value is 100
+                bit_list.append(bool(byte & (1 << index)))
+
+        return bit_list
+
+
+    def set_active_power(self, address: hex, percentage: int):
+        if self._dtu_type == 1 and percentage < 10:
+            raise CoilNumberException("Active power percentage outside of supported range (10-100)")
+        if self._dtu_type == 0 and percentage < 2:
+            raise CoilNumberException("Active power percentage outside of supported range (2-100)")
+        if percentage > 100:
+            raise CoilNumberException("Active power percentage outside of supported range (2-100)")
+
+        with self._get_client() as client:
+            write_result = client.write_coils(address, self.number_to_coil_byte(percentage), slave=1)
+        return write_result
+
+    def set_on_off(self, address: hex, on: bool):
+        with self._get_client() as client:
+            write_result = client.write_coils(address, self.number_to_coil_byte(int(on)), slave=1)
+        return write_result

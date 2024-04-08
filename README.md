@@ -60,6 +60,7 @@ rm hoymiles_dtu.zip
 | `dtu_type` | `int` | `False` | 0 | 0 - Hoymiles DTU, 1 - OpenDTU |
 | `monitored_conditions` | `list` | `True` | - | List of conditions to monitor |
 | `monitored_conditions_pv` | `list` | `True` | - | List of conditions for pv to monitor |
+| `rw_coils` | `list` | `False` | - | List of read/write coils to monitor and set |
 | `panels` | `float` | `True` | - | Number of PV panels |
 | `scan_interval` | `time period` | `False` | `00:02:00` | Interval between sensor updates |
 
@@ -88,6 +89,21 @@ rm hoymiles_dtu.zip
 | `alarm_code` | The alarm code of a photovoltaic panel plant |
 | `alarm_count` | The alarm count of a photovoltaic panel plant |
 | `link_status` | The link status of a photovoltaic panel plant |
+
+### Possible Inverter write coils
+**WARNING** Use at your own risk. Using these values causes bits to be written to the Hoymiles Modbus coils in accordance to this documentation: https://niziak.spox.org/wiki/_media/hw:hoymiles:technical-note-modbus-implementation-using-3gen-dtu-pro-v1.2.pdf
+Tested only on:
+| Unit        | Hardware version | Software version |
+|-------------|------------------|------------------|
+| DTU-Pro-S   | H09.06.01        | V00.02.19        |
+| HMS-1800-4T | H00.04.00        | V01.00.16        |
+
+
+| Key | Description |
+| --- | --- | 
+| `on_off` | The current on/off status. Shows as off if panels are not producing |
+| `limit_active_power` | The active power production % limit set on the microinverter  |
+
 
 ### Example configuration
 
