@@ -39,12 +39,6 @@ class CommunicationParams:
     reconnect_delay: int = 60000 * 5
     """Delay in milliseconds before reconnecting."""
 
-@dataclass
-class CommunicationParamsCoils(CommunicationParams):
-    """Low level pymodbus communication parameters for coils"""
-    retry_on_empty: bool = True
-
-
 class _CustomSocketFramer(ModbusSocketFramer):
     """Custom framer for fixing data length in received modbus packets."""
 
@@ -96,22 +90,15 @@ class HoymilesModbusTCP:
         self._microinverter_coils_struct = HMSeriesMicroinverterCoils
         self._unit_id = unit_id
         self._comm_params: CommunicationParams = CommunicationParams()
-        self._comm_params_coils: CommunicationParamsCoils = CommunicationParamsCoils()
         self._dtu_type: int = dtu_type
 
     @property
     def comm_params(self) -> CommunicationParams:
         """Low level communication parameters."""
         return self._comm_params
-    
-    @property
-    def comm_params_coils(self) -> CommunicationParamsCoils:
-        """Low level pymodbus communication parameters for coils."""
-        return self._comm_params_coils
-    
 
-    def _get_client(self, coils: bool = False) -> ModbusTcpClient:
-        return ModbusTcpClient(self._host, self._port, framer=_CustomSocketFramer, **asdict(self.comm_params_coils if coils else self.comm_params))
+    def _get_client(self) -> ModbusTcpClient:
+        return ModbusTcpClient(self._host, self._port, framer=_CustomSocketFramer, **asdict(self.comm_params))
 
     @staticmethod
     def _read_registers(client: ModbusTcpClient, start_address, count, unit_id):
@@ -120,8 +107,9 @@ class HoymilesModbusTCP:
             raise result
         return result
     
-    def read_coils(self, start_address, count, unit_id):
-        result = self.read_coils(start_address, count, slave=unit_id)
+    @staticmethod
+    def _read_coils(client: ModbusTcpClient, start_address, count, unit_id):
+        result = client.read_coils(start_address, count, slave=unit_id)
         return result
 
     @property
@@ -159,7 +147,7 @@ class HoymilesModbusTCP:
         with self._get_client() as client:
             for i in range(self._MAX_MICROINVERTER_COUNT):
                 start_address_coils = i * 6 + 0xC006
-                result_coils = self.read_coils(start_address_coils, 2, self._unit_id)
+                result_coils = self._read_coils(client, start_address_coils, 2, self._unit_id)
                 if result_coils.isError():
                     if result_coils.exception_code == 1:
                         break

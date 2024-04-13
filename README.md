@@ -90,7 +90,7 @@ rm hoymiles_dtu.zip
 | `alarm_count` | The alarm count of a photovoltaic panel plant |
 | `link_status` | The link status of a photovoltaic panel plant |
 
-### Possible Inverter write coils
+<!-- ### Possible Inverter write coils
 **WARNING** Use at your own risk. Using these values causes bits to be written to the Hoymiles Modbus coils in accordance to this documentation: https://niziak.spox.org/wiki/_media/hw:hoymiles:technical-note-modbus-implementation-using-3gen-dtu-pro-v1.2.pdf
 Tested only on:
 | Unit        | Hardware version | Software version |
@@ -102,7 +102,7 @@ Tested only on:
 | Key | Description |
 | --- | --- | 
 | `on_off` | The current on/off status. Shows as off if panels are not producing |
-| `limit_active_power` | The active power production % limit set on the microinverter  |
+| `limit_active_power` | The active power production % limit set on the microinverter  | -->
 
 
 ### Example configuration
