@@ -8,7 +8,7 @@ from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity, Senso
 from homeassistant.const import UnitOfElectricCurrent, UnitOfEnergy, UnitOfPower, UnitOfElectricPotential, UnitOfTemperature, UnitOfFrequency
 from homeassistant.const import (CONF_HOST, CONF_NAME, CONF_MONITORED_CONDITIONS, CONF_SCAN_INTERVAL)
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import Entity
+
 
 from .hoymiles.client import HoymilesModbusTCP
 from .hoymiles.datatypes import MicroinverterType
@@ -17,6 +17,7 @@ CONF_MONITORED_CONDITIONS_PV = "monitored_conditions_pv"
 CONF_MICROINVERTERS = "microinverters"
 CONF_PANELS = "panels"
 CONF_DTU_TYPE = "dtu_type"
+CONF_INVERTERS = "inverters"
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_NAME = 'Hoymiles DTU'
@@ -45,6 +46,7 @@ PV_TYPES = {
     'link_status': [14, 'Status połączenia', ' ', 'link_status', None, False, 1, 0]
 }
 
+
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Optional(CONF_MONITORED_CONDITIONS, default=[]):
@@ -52,6 +54,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_MONITORED_CONDITIONS_PV, default=[]):
         vol.All(cv.ensure_list, [vol.In(PV_TYPES)]),
     vol.Optional(CONF_PANELS, default=0): cv.byte,
+    vol.Optional(CONF_INVERTERS, default=0): cv.byte,
     vol.Optional(CONF_DTU_TYPE, default=0): cv.byte,    
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): cv.time_period
@@ -211,6 +214,53 @@ class HoymilesPVSensor(SensorEntity):
 
     def update(self):
         self._updater.update()
+
+
+# class HoymilesInverterSensor(SensorEntity):
+#     def __init__(self, name, index, sensor_type, updater):
+#         self._client_name = name + f' inverter {index}'
+#         self._index = index
+#         self._inverter_number = -1
+#         self._type = sensor_type
+#         self._updater = updater
+#         self._name = RW_TYPES[sensor_type][1]
+#         self._state = None
+#         self._unit_of_measurement = RW_TYPES[sensor_type][2]
+#         self._unique_id_name = name
+
+#     @property
+#     def name(self):
+#         return '{} {}'.format(self._client_name, self._type)
+
+#     @property
+#     def state(self):
+#         if self._updater.data is not None:
+#             temp = self._updater.data.microinverter_coils[self._inverter_number-1]
+#             self._state = temp[RW_TYPES[self._type][0]]
+#         return self._state
+
+
+#     @property
+#     def unique_id(self):
+#         """Return a unique ID."""
+#         return f"dtu-inverter-{self._unique_id_name}-{self._index}-{self._type.lower()}"  
+        
+#     @property
+#     def device_class(self):
+#         return RW_TYPES[self._type][3]
+
+#     @property
+#     def state_class(self):
+#         return RW_TYPES[self._type][4]
+
+#     @property
+#     def unit_of_measurement(self):
+#         return self._unit_of_measurement
+
+#     def update(self):
+#         self._updater.update()
+
+
 
 class HoymilesDTUUpdater:
     def __init__(self, host, scan_interval, dtu_type):
